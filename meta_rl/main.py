@@ -99,8 +99,8 @@ if __name__ == '__main__':
                                                          'low_reward_value': 0,
                                                          'nb_target': 1,
                                                          'mode': 'random',
-                                                         'agent_starting': 'fixed',
-                                                         'generation_zone': 'd',
+                                                         'agent_starting': 'random',
+                                                         'generation_zone': 'abc',
                                                          'speed_limit_mode': 'vector_norm',
                                                          'GCP': True},
                                         continuous=True,
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     # Miscellaneous
     parser.add_argument('--output-folder', type=str, default='maml-{0}'.format(int(time.time())),
                         help='name of the output folder')
-    parser.add_argument('--num-workers', type=int, default=1,
+    parser.add_argument('--num-workers', type=int, default=3,
                         help='number of workers for trajectories sampling')
     parser.add_argument('--device', type=str, default='cpu', help='set the device (cpu or cuda)')
 

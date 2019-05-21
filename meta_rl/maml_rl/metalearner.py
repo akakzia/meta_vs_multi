@@ -3,9 +3,9 @@ from torch.nn.utils.convert_parameters import (vector_to_parameters,
                                                parameters_to_vector)
 from torch.distributions.kl import kl_divergence
 
-from meta_rl.maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
+from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
                                        weighted_normalize)
-from meta_rl.maml_rl.utils.optimization import conjugate_gradient
+from maml_rl.utils.optimization import conjugate_gradient
 
 
 class MetaLearner(object):
@@ -54,7 +54,7 @@ class MetaLearner(object):
 
         return loss
 
-    def adapt(self, episodes, first_order=False):
+    def adapt(self, step, episodes, first_order=False):
         """Adapt the parameters of the policy network to a new task, from 
         sampled trajectories `episodes`, with a one-step gradient update [1].
         """
@@ -64,6 +64,8 @@ class MetaLearner(object):
         loss = self.inner_loss(episodes)
         # Get the new parameters after a one-step gradient update
         params = self.policy.update_params(loss, step_size=self.fast_lr, first_order=first_order)
+        if step != -1:
+            print('Inner gradient step for task {0} | Loss = {1}'.format(step, loss))
 
         return params
 
@@ -72,11 +74,11 @@ class MetaLearner(object):
         for all the tasks `tasks`.
         """
         episodes = []
-        for task in tasks:
+        for i, task in enumerate(tasks):
             self.sampler.reset_task(task)
             train_episodes = self.sampler.sample(self.policy, gamma=self.gamma, device=self.device)
 
-            params = self.adapt(train_episodes, first_order=first_order)
+            params = self.adapt(i, train_episodes, first_order=first_order)
 
             valid_episodes = self.sampler.sample(self.policy, params=params, gamma=self.gamma, device=self.device)
 
@@ -89,7 +91,7 @@ class MetaLearner(object):
             old_pis = [None] * len(episodes)
 
         for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
-            params = self.adapt(train_episodes)
+            params = self.adapt(-1, train_episodes)
             pi = self.policy(valid_episodes.observations, params=params)
 
             if old_pi is None:
@@ -124,7 +126,7 @@ class MetaLearner(object):
             old_pis = [None] * len(episodes)
 
         for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
-            params = self.adapt(train_episodes)
+            params = self.adapt(-1, train_episodes)
             with torch.set_grad_enabled(old_pi is None):
                 pi = self.policy(valid_episodes.observations, params=params)
                 pis.append(detach_distribution(pi))
@@ -186,6 +188,7 @@ class MetaLearner(object):
             vector_to_parameters(old_params - step_size * step,
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
+            print('Meta-optimization step | Surrogate loss = {1}'.format(_, loss))
             losses.append(loss)
             improve = loss - old_loss
             if (improve.item() < 0.0) and (kl.item() < max_kl):

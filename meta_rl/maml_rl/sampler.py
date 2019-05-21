@@ -2,8 +2,8 @@ import gym
 import torch
 import multiprocessing as mp
 
-from meta_rl.maml_rl.envs.subproc_vec_env import SubprocVecEnv
-from meta_rl.maml_rl.episode import BatchEpisodes
+from maml_rl.envs.subproc_vec_env import SubprocVecEnv
+from maml_rl.episode import BatchEpisodes
 
 
 def make_env(env_name):

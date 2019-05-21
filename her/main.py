@@ -7,6 +7,7 @@ import pprint as pp
 import gym_hypercube
 import pickle
 import os
+import json
 
 from model import ActorNetwork, CriticNetwork
 from noise import OrnsteinUhlenbeckActionNoise
@@ -16,6 +17,11 @@ from train import train
 def main(args):
 
     with tf.Session() as sess:
+        if not os.path.exists(args['save_dir']):
+            os.makedirs(args['save_dir'])
+        with open(os.path.join(args['save_dir'], 'config.json'), 'w') as f:
+            json.dump(args, f, indent=2)
+
         env = gym.make(args['env'])
         np.random.seed(int(args['random_seed']))
         tf.set_random_seed(int(args['random_seed']))
@@ -35,12 +41,6 @@ def main(args):
 
         actor_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(action_dim))
 
-        if args['use_gym_monitor']:
-            if not args['render_env']:
-                env = wrappers.Monitor(
-                    env, args['monitor_dir'], video_callable=False, force=True)
-            else:
-                env = wrappers.Monitor(env, args['monitor_dir'], force=True)
         if args['train']:
             train(sess, env, args, actor, critic, actor_noise)
         else:
@@ -104,21 +104,22 @@ if __name__ == '__main__':
     # run parameters
     parser.add_argument('--env', help='choose the gym env- tested on gym_hypercube', default=id)
     parser.add_argument('--random-seed', help='random seed for repeatability', default=1236)
-    parser.add_argument('--epochs', help='number of epochs', default=20)
-    parser.add_argument('--max-episodes', help='max num of episodes per epoch to do while training', default=20)
+    parser.add_argument('--epochs', help='number of epochs', default=500)
+    parser.add_argument('--max-episodes', help='max num of episodes per epoch to do while training', default=30)
     parser.add_argument('--max-episode-len', help='max length of 1 episode', default=201)
-    parser.add_argument('--render-env', help='render the gym env', action='store_true')
-    parser.add_argument('--use-gym-monitor', help='record gym results', action='store_true')
-    parser.add_argument('--monitor-dir', help='directory for storing gym results', default='./results/gym_ddpg')
-    parser.add_argument('--summary-dir', help='directory for storing tensorboard info', default='./results/del')
+    parser.add_argument('--summary-dir', help='directory for storing tensorboard info', default='./summary/del')
+    parser.add_argument('--save-dir', help='directory for storing models', default='./models/del')
     parser.add_argument('--HER', help='use hindsight experience replay', default=False)
+    parser.add_argument('--fictive-rewards', help='use hindsight experience replay', default='all')
     parser.add_argument('--train', help='train the model from scratch', default=True)
 
-    parser.set_defaults(render_env=False)
-    parser.set_defaults(use_gym_monitor=False)
-
     args = vars(parser.parse_args())
-    
+
+    if args['HER'] == 'True':
+        args['HER'] = True
+    if args['HER'] == 'False':
+        args['HER'] = False
+
     pp.pprint(args)
 
     main(args)

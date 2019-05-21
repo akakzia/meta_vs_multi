@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from her.replay_buffer import ReplayBuffer
+from replay_buffer import ReplayBuffer
 import matplotlib.pyplot as plt
 import time
 import os
@@ -75,9 +75,6 @@ def train(sess, env, args, actor, critic, actor_noise):
             episode = []
             for j in range(int(args['max_episode_len'])):
 
-                if args['render_env']:
-                    env.render()
-
                 # Added exploration noise
                 # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
                 k = np.random.uniform(0, 1)
@@ -139,25 +136,28 @@ def train(sess, env, args, actor, critic, actor_noise):
                     print('| Reward: {:d} | Episode: {:d} | Qmax: {:.4f}'.format(int(ep_reward), \
                           i, (ep_ave_max_q / float(j))))
                     if args['HER']:
-                        for state, reward, done, next_state in episode:
-                            new_goal = next_state
-                            fictive_reward = 1
-                            d = True
-                            new_state = np.concatenate((state[:4], new_goal[:4]))
-                            new_next_state = np.concatenate((next_state[:4], new_goal[:4]))
-                            replay_buffer.add(np.reshape(new_state, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)),
-                                              fictive_reward, d, np.reshape(new_next_state, (actor.s_dim,)))
-                        """if len(episode) == int(args['max_episode_len']):
-                            for t in np.random.choice(len(episode), 100):
+                        if args['fictive_rewards'] == 'all':
+                            for state, reward, done, next_state in episode:
+                                new_goal = next_state
+                                fictive_reward = 1
+                                d = True
+                                new_state = np.concatenate((state[:4], new_goal[:4]))
+                                new_next_state = np.concatenate((next_state[:4], new_goal[:4]))
+                                replay_buffer.add(np.reshape(new_state, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)),
+                                                  fictive_reward, d, np.reshape(new_next_state, (actor.s_dim,)))
+                        else:
+                            if ep_reward == 0:
+                                t = len(episode) - 1
                                 new_goal = episode[t][-1]
-                                for (state, reward, done, next_state) in episode[:t]:
+                                for k in range(t):
+                                    state, reward, done, next_state = episode[k]
                                     new_state = np.concatenate((state[:4], new_goal[:4]))
                                     new_next_state = np.concatenate((next_state[:4], new_goal[:4]))
-                                    if (new_next_state[:4] == new_goal[:4]).all():
+                                    if k == t:
                                         reward = 1
                                         done = True
                                     replay_buffer.add(np.reshape(new_state, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)),
-                                                      reward, done, np.reshape(new_next_state, (actor.s_dim,)))"""
+                                                      reward, done, np.reshape(new_next_state, (actor.s_dim,)))
                     break
         success_rate = success / int(args['max_episodes'])
         summary_str_2 = sess.run(summary_second, feed_dict={
@@ -167,9 +167,7 @@ def train(sess, env, args, actor, critic, actor_noise):
         writer.add_summary(summary_str_2, epoch)
         writer.flush()
         if (epoch + 1) % 10 == 0 or epoch == 0:
-            if not os.path.exists('./models/test'):
-                os.makedirs('./models/test')
-            save_path = saver.save(sess, './models/test/model-{0}.ckpt'.format(epoch))
+            save_path = saver.save(sess, '{0}/model-{1}.ckpt'.format(args['save_dir'], epoch))
             print("Model saved in path: %s" % save_path)
         # evaluations.append(success_rate)
     # visualize_evaluations(evaluations, save=False)

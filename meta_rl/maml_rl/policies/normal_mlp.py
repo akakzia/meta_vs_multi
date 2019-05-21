@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 from collections import OrderedDict
-from meta_rl.maml_rl.policies.policy import Policy, weight_init
+from maml_rl.policies.policy import Policy, weight_init
 
 
 class NormalMLPPolicy(Policy):
