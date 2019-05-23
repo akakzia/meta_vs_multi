@@ -117,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.90, help='value of the discount factor gamma')
     parser.add_argument('--tau', type=float, default=1.0, help='value of the discount factor for GAE')
     parser.add_argument('--first-order', action='store_true', help='use the first-order approximation of MAML')
-    parser.add_argument('--train', type=bool, default=True, help='train the model or use existing one')
+    parser.add_argument('--train', type=bool, default=False, help='train the model or use existing one')
 
     # Policy network (relu activation function)
     parser.add_argument('--hidden-size', type=int, default=100, help='number of hidden units per layer')
@@ -141,72 +141,76 @@ if __name__ == '__main__':
     # Miscellaneous
     parser.add_argument('--output-folder', type=str, default='maml-{0}'.format(int(time.time())),
                         help='name of the output folder')
-    parser.add_argument('--num-workers', type=int, default=3,
+    parser.add_argument('--to-pickle', type=str, default='maml', help='name of model to pickle')
+    parser.add_argument('--num-workers', type=int, default=1,
                         help='number of workers for trajectories sampling')
     parser.add_argument('--device', type=str, default='cpu', help='set the device (cpu or cuda)')
 
     args = parser.parse_args()
-
-    # Create logs and saves folder if they don't exist
-    if not os.path.exists('./logs'):
-        os.makedirs('./logs')
-    if not os.path.exists('./saves'):
-        os.makedirs('./saves')
-    # Device
-    args.device = torch.device(args.device
-        if torch.cuda.is_available() else 'cpu')
-    # Slurm
-    if 'SLURM_JOB_ID' in os.environ:
-        args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])
-
     if args.train:
+        # Create logs and saves folder if they don't exist
+        if not os.path.exists('./logs'):
+            os.makedirs('./logs')
+        if not os.path.exists('./saves'):
+            os.makedirs('./saves')
+        # Device
+        args.device = torch.device(args.device
+            if torch.cuda.is_available() else 'cpu')
+        # Slurm
+        if 'SLURM_JOB_ID' in os.environ:
+            args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])
+
         main(args)
     else:
         maml = []
         indexes = [e for e in range(500) if e % 10 == 9]
         indexes = [0] + indexes
         num_test_tasks = 10
-        sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
-                               num_workers=args.num_workers)
-        model = NormalMLPPolicy(
-                int(np.prod(sampler.envs.observation_space.shape)),
-                int(np.prod(sampler.envs.action_space.shape)),
-                hidden_sizes=(args.hidden_size,) * args.num_layers)
-        checkpoint = torch.load('./saves/maml-1557733833/policy-499.pt')
-        model.load_state_dict(checkpoint)
-        baseline = LinearFeatureBaseline(
-            int(np.prod(sampler.envs.observation_space.shape)))
+        successes = []
+        for index in indexes:
+            sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
+                                   num_workers=args.num_workers)
+            model = NormalMLPPolicy(
+                    int(np.prod(sampler.envs.observation_space.shape)),
+                    int(np.prod(sampler.envs.action_space.shape)),
+                    hidden_sizes=(args.hidden_size,) * args.num_layers)
+            checkpoint = torch.load('../saves/{0}/policy-{1}.pt'.format(args.to_pickle, index))
+            model.load_state_dict(checkpoint)
+            baseline = LinearFeatureBaseline(
+                int(np.prod(sampler.envs.observation_space.shape)))
 
-        metalearner = MetaLearner(sampler, model, baseline, gamma=args.gamma,
-                                  fast_lr=args.fast_lr, tau=args.tau, device=args.device)
+            metalearner = MetaLearner(sampler, model, baseline, gamma=args.gamma,
+                                      fast_lr=args.fast_lr, tau=args.tau, device=args.device)
 
-        env = gym.make(id)
-        tasks = env.unwrapped.sample_tasks(num_test_tasks)
-        success = 0
-        success_random = 0
-        times = []
-        metalearner = gradient_step(0, tasks, args)
+            env = gym.make(id)
 
-        for task in tasks:
-            s = env.reset_task(task)
-            step = 0
-            d = False
-            while not d:
-                env.render()
-                input = torch.tensor(s).float()
-                action = model.forward(input, model.state_dict()).rsample().detach().numpy()
-                step += 1
-                output, r, d, info = env.step(action)
-                # if r == 1:
-                #    success += 1
+            tasks = env.unwrapped.sample_tasks(num_test_tasks)
+            success = 0
+            times = []
+            metalearner = gradient_step(0, tasks, args)
+            for task in tasks:
+                s = env.reset_task(task)
+                step = 0
+                d = False
+                while not d:
+                    # env.render()
+                    input = torch.tensor(s).float()
+                    action = model.forward(input, model.state_dict()).rsample().detach().numpy()
+                    step += 1
+                    output, r, d, info = env.step(action)
+                    if r == 1:
+                        success += 1
+                times.append(step)
             env.close()
-            times.append(step)
-        maml.append(times)
-        """with open('../3g_maml_gcp_time_D.pkl', 'wb') as f:
-            pickle.dump(maml, f)
-        with open('../3g_maml_gcp_time_D.pkl', 'rb') as f:
-            test = pickle.load(f)
-        print(test[0])"""
+            maml.append(times)
+            successes.append(success / num_test_tasks)
+        out = [successes, maml]
+        #if not os.path.exists('./pkls'):
+        #    os.makedirs('./pkls')
+        #with open('./pkls/{0}.pkl'.format(args.output_folder), 'wb') as f:
+        #    pickle.dump(out, f)
+        #with open('./pkls/{0}.pkl'.format(args.output_folder), 'rb') as f:
+        #    test = pickle.load(f)
 
 
 

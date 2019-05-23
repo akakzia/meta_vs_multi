@@ -17,11 +17,6 @@ from train import train
 def main(args):
 
     with tf.Session() as sess:
-        if not os.path.exists(args['save_dir']):
-            os.makedirs(args['save_dir'])
-        with open(os.path.join(args['save_dir'], 'config.json'), 'w') as f:
-            json.dump(args, f, indent=2)
-
         env = gym.make(args['env'])
         np.random.seed(int(args['random_seed']))
         tf.set_random_seed(int(args['random_seed']))
@@ -42,18 +37,22 @@ def main(args):
         actor_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(action_dim))
 
         if args['train']:
+            if not os.path.exists(args['save_dir']):
+                os.makedirs(args['save_dir'])
+            with open(os.path.join(args['save_dir'], 'config.json'), 'w') as f:
+                json.dump(args, f, indent=2)
             train(sess, env, args, actor, critic, actor_noise)
         else:
             ddpg = []
             indexes = [e for e in range(500) if e % 10 == 9]
             indexes = [0] + indexes
-            num_test_tasks = 100
-            directory = 'ddpg_only_no_gcp'
+            num_test_tasks = 10
+            successes = []
+            directory = args['to_pickle']
             for index in indexes:
-                print(index)
                 times = []
                 saver = tf.train.Saver()
-                saver.restore(sess, "../meta_rl/models_01/{0}/model-{1}.ckpt".format(directory, index))
+                saver.restore(sess, "../models/{0}/model-{1}.ckpt".format(directory, index))
                 tasks = env.unwrapped.sample_tasks(num_test_tasks)
                 success = 0
                 for task in tasks:
@@ -65,17 +64,19 @@ def main(args):
                         action = actor.predict_target(np.reshape(s, (1, actor.s_dim)))[0]
                         step += 1
                         obs, r, d, _ = env.step(action)
-                    # if r == 1:
-                    #    success += 1
-                    env.close()
+                    if r == 1:
+                        success += 1
                     times.append(step)
-                # ddpg.append(success / num_test_tasks)
+                env.close()
+                successes.append(success / num_test_tasks)
                 ddpg.append(times)
-            with open('../ddpg_only_time_D.pkl', 'wb') as f:
-                pickle.dump(ddpg, f)
-            with open('../ddpg_only_time_D.pkl', 'rb') as f:
-                test = pickle.load(f)
-            print(test[0])
+            out = [successes, ddpg]
+            #if not os.path.exists('./pkls'):
+            #    os.makedirs('./pkls')
+            #with open('./pkls/{0}.pkl'.format(args['save_dir']), 'wb') as f:
+            #    pickle.dump(out, f)
+            #with open('./pkls/{0}.pkl'.format(args['save_dir']), 'rb') as f:
+            #    test = pickle.load(f)
 
 
 if __name__ == '__main__':
@@ -84,7 +85,7 @@ if __name__ == '__main__':
                                                          'low_reward_value': 0,
                                                          'nb_target': 1,
                                                          'mode': 'random',
-                                                         'agent_starting': 'random',
+                                                         'agent_starting': 'fixed',
                                                          'generation_zone': 'abc',
                                                          'speed_limit_mode': 'vector_norm',
                                                          'GCP': True},
@@ -108,10 +109,11 @@ if __name__ == '__main__':
     parser.add_argument('--max-episodes', help='max num of episodes per epoch to do while training', default=30)
     parser.add_argument('--max-episode-len', help='max length of 1 episode', default=201)
     parser.add_argument('--summary-dir', help='directory for storing tensorboard info', default='./summary/del')
-    parser.add_argument('--save-dir', help='directory for storing models', default='./models/del')
+    parser.add_argument('--save-dir', help='directory for storing models', default='del')
+    parser.add_argument('--to-pickle', help='model to pickle', default='all_fictive_DDPG+HER')
     parser.add_argument('--HER', help='use hindsight experience replay', default=False)
     parser.add_argument('--fictive-rewards', help='use hindsight experience replay', default='all')
-    parser.add_argument('--train', help='train the model from scratch', default=True)
+    parser.add_argument('--train', help='train the model from scratch', default=False)
 
     args = vars(parser.parse_args())
 

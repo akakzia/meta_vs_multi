@@ -64,8 +64,8 @@ class MetaLearner(object):
         loss = self.inner_loss(episodes)
         # Get the new parameters after a one-step gradient update
         params = self.policy.update_params(loss, step_size=self.fast_lr, first_order=first_order)
-        if step != -1:
-            print('Inner gradient step for task {0} | Loss = {1}'.format(step, loss))
+        #if step != -1:
+        #    print('Inner gradient step for task {0} | Loss = {1}'.format(step, loss))
 
         return params
 
@@ -188,7 +188,7 @@ class MetaLearner(object):
             vector_to_parameters(old_params - step_size * step,
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
-            print('Meta-optimization step | Surrogate loss = {1}'.format(_, loss))
+            #print('Meta-optimization step | Surrogate loss = {1}'.format(_, loss))
             losses.append(loss)
             improve = loss - old_loss
             if (improve.item() < 0.0) and (kl.item() < max_kl):
