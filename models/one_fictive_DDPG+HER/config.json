@@ -1,0 +1,18 @@
+{
+  "actor_lr": 0.0001,
+  "critic_lr": 0.001,
+  "gamma": 0.9,
+  "tau": 0.001,
+  "buffer_size": 1000000,
+  "minibatch_size": 64,
+  "env": "Hypercube-v0",
+  "random_seed": 1236,
+  "epochs": 500,
+  "max_episodes": 30,
+  "max_episode_len": 201,
+  "summary_dir": "./summary/one_fictive_DDPG",
+  "save_dir": "./models/one_fictive_DDPG+HER",
+  "HER": true,
+  "fictive_rewards": "one",
+  "train": true
+}
