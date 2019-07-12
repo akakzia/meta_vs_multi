@@ -1,7 +1,7 @@
-# Comparing multi-task and meta-reinforcement learning approaches in continuous action spaces with explicit sparse reward function
+# Confronting multitask and meta-reinforcement learning approaches in continuous action spaces with explicit sparse reward function
 
-<kbd>![DDPG](https://media.giphy.com/media/TJhAQ0LZAmiLVhphA9/giphy.gif)</kbd><kbd>![MAML](https://media.giphy.com/media/UWOtisD6E0XfTuW3bm/giphy.gif)</kbd><br>
-<p align="center"> Left:DDPG+HER agent, Right: MAML with GCP agent, both performing in zone ABC </p><br>
+<kbd>![MAML](https://media.giphy.com/media/lSguOE2YDghUctOkbX/giphy.gif)</kbd><br>
+<p align="center"> MAML with GCP agent performing on testing zone D</p><br>
 
 #### Set up
 
