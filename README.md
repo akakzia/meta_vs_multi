@@ -7,17 +7,18 @@ We work on an existing 2d-Hypercube (rectangle) environment and personnalize it 
 <img src="https://www.zupimages.net/up/19/28/pzh0.png" alt="drawing" width="300"/><br>
 Evaluation protocol
  </p>
-#### References
+
+<p  align="center">
+<kbd><img src="https://media.giphy.com/media/lSguOE2YDghUctOkbX/giphy.gif" alt="drawing" width="300"/></p></kbd><br>
+<p  align="center">MAML with GCP agent performing on testing zone D</p><br>
+
+#### Set up
 
 1. https://github.com/hroussille/RL-evaluation-environment <br>
 
 2. https://github.com/tristandeleu/pytorch-maml-rl<br>
 
 3. https://github.com/SamKirkiles/DDPG-MUJOCO<br>
-<p  align="center">
-<kbd><img src="https://media.giphy.com/media/lSguOE2YDghUctOkbX/giphy.gif" alt="drawing" width="300"/></p></kbd><br>
-<p  align="center">MAML with GCP agent performing on testing zone D</p><br>
-
 #### Set up
 
 Open a terminal and
