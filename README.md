@@ -1,6 +1,6 @@
 # Confronting multitask and meta-reinforcement learning approaches in continuous action spaces with explicit sparse reward function
 
-<kbd>![MAML](https://media.giphy.com/media/lSguOE2YDghUctOkbX/giphy.gif)</kbd><br>
+<p align="center"><kbd>![MAML](https://media.giphy.com/media/lSguOE2YDghUctOkbX/giphy.gif)</kbd></p><br>
 <p align="center"> MAML with GCP agent performing on testing zone D</p><br>
 
 #### Set up
