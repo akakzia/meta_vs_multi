@@ -6,17 +6,6 @@ import time
 import os
 
 
-def visualize_evaluations(table, save=False):
-    if save:
-        print("Saving")
-    x = np.arange(0, len(table), 1)
-    plt.plot(x, table, '-r')
-    plt.ylim(0, 1)
-    plt.title('Success rate per epoch')
-    plt.grid()
-    plt.show()
-
-
 # ===========================
 #   Tensorflow Summary Ops
 # ===========================
@@ -67,6 +56,7 @@ def train(sess, env, args, actor, critic, actor_noise):
         print('=========== EPOCH {:d} ==========='.format(epoch+1))
         success = 0.
         tasks = env.unwrapped.sample_tasks(int(args['max_episodes']))
+        # tasks = [{'goal': np.array([0.8, 0.43874916])} for e in range(int(args['max_episodes']))]
         for i in range(int(args['max_episodes'])):
 
             s = env.reset_task(tasks[i])
@@ -82,6 +72,7 @@ def train(sess, env, args, actor, critic, actor_noise):
                     a = [np.random.uniform(-1, 1, 2)]
                 else:
                     a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
+                # env.render()
                 s2, r, terminal, info = env.step(a[0])
                 episode.append((s, r, terminal, s2))
                 replay_buffer.add(np.reshape(s, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)), r,
@@ -136,27 +127,41 @@ def train(sess, env, args, actor, critic, actor_noise):
                     print('| Reward: {:d} | Episode: {:d} | Qmax: {:.4f}'.format(int(ep_reward), \
                           i, (ep_ave_max_q / float(j))))
                     if args['HER']:
-                        if args['fictive_rewards'] == 'all':
+                        if ep_reward == 0 and args['fictive_rewards'] == 'all':
                             for state, reward, done, next_state in episode:
                                 new_goal = next_state
                                 fictive_reward = 1
                                 d = True
-                                new_state = np.concatenate((state[:4], new_goal[:4]))
-                                new_next_state = np.concatenate((next_state[:4], new_goal[:4]))
+                                new_state = np.concatenate((state[:4], new_goal[:2]))
+                                new_next_state = np.concatenate((next_state[:4], new_goal[:2]))
                                 replay_buffer.add(np.reshape(new_state, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)),
                                                   fictive_reward, d, np.reshape(new_next_state, (actor.s_dim,)))
-                        else:
-                            if ep_reward == 0:
-                                t = len(episode) - 1
-                                new_goal = episode[t][-1]
-                                for k in range(t):
+                        elif ep_reward == 0 and args['fictive_rewards'] == 'one':
+                            t = len(episode) - 1
+                            new_goal = episode[t][-1]
+                            for k in range(t+1):
+                                state, reward, done, next_state = episode[k]
+                                new_state = np.concatenate((state[:4], new_goal[:2]))
+                                new_next_state = np.concatenate((next_state[:4], new_goal[:2]))
+                                if k == t:
+                                    reward = 1
+                                    done = True
+                                replay_buffer.add(np.reshape(new_state, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)),
+                                                  reward, done, np.reshape(new_next_state, (actor.s_dim,)))
+                        elif ep_reward == 0 and args['fictive_rewards'] == 'few':
+                            list = [e for e in range(5, int(args['max_episode_len']), 5)]
+                            # t = len(episode) - 1
+                            for t in range(len(list)):
+                                new_goal = episode[list[t]][-1]
+                                for k in range(list[t] - 5, list[t] + 1):
                                     state, reward, done, next_state = episode[k]
-                                    new_state = np.concatenate((state[:4], new_goal[:4]))
-                                    new_next_state = np.concatenate((next_state[:4], new_goal[:4]))
-                                    if k == t:
+                                    new_state = np.concatenate((state[:4], new_goal[:2]))
+                                    new_next_state = np.concatenate((next_state[:4], new_goal[:2]))
+                                    if k == list[t]:
                                         reward = 1
                                         done = True
-                                    replay_buffer.add(np.reshape(new_state, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)),
+                                    replay_buffer.add(np.reshape(new_state, (actor.s_dim,)),
+                                                      np.reshape(a, (actor.a_dim,)),
                                                       reward, done, np.reshape(new_next_state, (actor.s_dim,)))
                     break
         success_rate = success / int(args['max_episodes'])
@@ -169,5 +174,3 @@ def train(sess, env, args, actor, critic, actor_noise):
         if (epoch + 1) % 10 == 0 or epoch == 0:
             save_path = saver.save(sess, '{0}/model-{1}.ckpt'.format(args['save_dir'], epoch))
             print("Model saved in path: %s" % save_path)
-        # evaluations.append(success_rate)
-    # visualize_evaluations(evaluations, save=False)

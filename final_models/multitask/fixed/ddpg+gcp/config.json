@@ -1,0 +1,19 @@
+{
+  "actor_lr": 0.0001,
+  "critic_lr": 0.001,
+  "gamma": 0.9,
+  "tau": 0.001,
+  "buffer_size": 1000000,
+  "minibatch_size": 64,
+  "env": "Hypercube-v0",
+  "random_seed": 333,
+  "epochs": 400,
+  "max_episodes": 30,
+  "max_episode_len": 101,
+  "summary_dir": "./summary02/fixed/ddpg+gcp",
+  "save_dir": "./models02/fixed/ddpg+gcp",
+  "to_pickle": "all_fictive_DDPG+HER",
+  "HER": false,
+  "fictive_rewards": "few",
+  "train": true
+}

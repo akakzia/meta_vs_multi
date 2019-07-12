@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import json
 import time
-import matplotlib.pyplot as plt
 import pickle
 from maml_rl.metalearner import MetaLearner
 from maml_rl.policies import CategoricalMLPPolicy, NormalMLPPolicy
@@ -12,20 +11,6 @@ from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.sampler import BatchSampler
 
 from tensorboardX import SummaryWriter
-
-
-def plot_results(maml, random, oracle, multitask):
-    x = np.arange(0, len(maml), 1)
-    plt.plot(x, oracle, '-r')
-    plt.plot(x, random, '-k')
-    plt.plot(x, maml, '-g')
-    plt.plot(x, multitask, '-b')
-    plt.title('Success rate over 100 test tasks, 2D Hypercube')
-    plt.ylabel('Success rate')
-    plt.xlabel('number of gradient steps')
-    plt.grid()
-    plt.legend(['oracle', 'random', 'maml', 'ddpg+her'])
-    plt.show()
 
 
 def total_rewards(episodes_rewards, aggregation=torch.mean):
@@ -89,7 +74,7 @@ def main(args):
                           total_rewards([ep.rewards for _, ep in episodes]), batch)
 
         # Save policy network
-        with open(os.path.join(save_folder, 'policy-{0}.pt'.format(batch)), 'wb') as f:
+        with open(os.path.join(save_folder, 'policy-{0}.pt'.format(batch + 256)), 'wb') as f:
             torch.save(policy.state_dict(), f)
 
 
@@ -99,8 +84,8 @@ if __name__ == '__main__':
                                                          'low_reward_value': 0,
                                                          'nb_target': 1,
                                                          'mode': 'random',
-                                                         'agent_starting': 'random',
-                                                         'generation_zone': 'abc',
+                                                         'agent_starting': 'fixed',
+                                                         'generation_zone': 'd',
                                                          'speed_limit_mode': 'vector_norm',
                                                          'GCP': True},
                                         continuous=True,
@@ -129,7 +114,7 @@ if __name__ == '__main__':
                         help='learning rate for the 1-step gradient update of MAML')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=500, help='number of batches')
+    parser.add_argument('--num-batches', type=int, default=145, help='number of batches')
     parser.add_argument('--meta-batch-size', type=int, default=30, help='number of tasks per batch')
     parser.add_argument('--max-kl', type=float, default=1e-2, help='maximum value for the KL constraint in TRPO')
     parser.add_argument('--cg-iters', type=int, default=10, help='number of iterations of conjugate gradient')
@@ -139,9 +124,9 @@ if __name__ == '__main__':
                         help='maximum number of iterations for line search')
 
     # Miscellaneous
-    parser.add_argument('--output-folder', type=str, default='maml-{0}'.format(int(time.time())),
+    parser.add_argument('--output-folder', type=str, default='maml_only'.format(int(time.time())),
                         help='name of the output folder')
-    parser.add_argument('--to-pickle', type=str, default='maml', help='name of model to pickle')
+    parser.add_argument('--to-pickle', type=str, default='maml+gcp', help='name of model to pickle')
     parser.add_argument('--num-workers', type=int, default=1,
                         help='number of workers for trajectories sampling')
     parser.add_argument('--device', type=str, default='cpu', help='set the device (cpu or cuda)')
@@ -162,10 +147,13 @@ if __name__ == '__main__':
 
         main(args)
     else:
-        maml = []
-        indexes = [e for e in range(500) if e % 10 == 9]
-        indexes = [0] + indexes
-        num_test_tasks = 10
+        env = gym.make(id)
+        # maml = []
+        #indexes = [e for e in range(400) if e % 10 == 9]
+        #indexes = [0] + indexes
+        indexes = [399]
+        num_test_tasks = 100
+        buckets = 1
         successes = []
         for index in indexes:
             sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
@@ -174,7 +162,7 @@ if __name__ == '__main__':
                     int(np.prod(sampler.envs.observation_space.shape)),
                     int(np.prod(sampler.envs.action_space.shape)),
                     hidden_sizes=(args.hidden_size,) * args.num_layers)
-            checkpoint = torch.load('../saves/{0}/policy-{1}.pt'.format(args.to_pickle, index))
+            checkpoint = torch.load('../final_models/meta/{0}/policy-{1}.pt'.format(args.to_pickle, index))
             model.load_state_dict(checkpoint)
             baseline = LinearFeatureBaseline(
                 int(np.prod(sampler.envs.observation_space.shape)))
@@ -182,35 +170,34 @@ if __name__ == '__main__':
             metalearner = MetaLearner(sampler, model, baseline, gamma=args.gamma,
                                       fast_lr=args.fast_lr, tau=args.tau, device=args.device)
 
-            env = gym.make(id)
-
-            tasks = env.unwrapped.sample_tasks(num_test_tasks)
-            success = 0
-            times = []
-            metalearner = gradient_step(0, tasks, args)
-            for task in tasks:
-                s = env.reset_task(task)
-                step = 0
-                d = False
-                while not d:
-                    # env.render()
-                    input = torch.tensor(s).float()
-                    action = model.forward(input, model.state_dict()).rsample().detach().numpy()
-                    step += 1
-                    output, r, d, info = env.step(action)
-                    if r == 1:
-                        success += 1
-                times.append(step)
-            env.close()
-            maml.append(times)
-            successes.append(success / num_test_tasks)
-        out = [successes, maml]
-        #if not os.path.exists('./pkls'):
-        #    os.makedirs('./pkls')
-        #with open('./pkls/{0}.pkl'.format(args.output_folder), 'wb') as f:
-        #    pickle.dump(out, f)
-        #with open('./pkls/{0}.pkl'.format(args.output_folder), 'rb') as f:
-        #    test = pickle.load(f)
+            task_success = []
+            for _ in range(buckets):
+                tasks = env.unwrapped.sample_tasks(num_test_tasks)
+                success = 0
+                #times = []
+                metalearner = gradient_step(0, tasks, args)
+                for task in tasks:
+                    s = env.reset_task(task)
+                    step = 0
+                    d = False
+                    while not d:
+                        #env.render()
+                        input = torch.tensor(s).float()
+                        action = model.forward(input, model.state_dict()).rsample().detach().numpy()
+                        step += 1
+                        s, r, d, info = env.step(action)
+                        if r == 1:
+                            success += 1
+                    # times.append(step)
+                # maml.append(times)
+                task_success.append(success / num_test_tasks)
+            successes.append(task_success)
+        env.close()
+        #out = [successes, maml]
+        if not os.path.exists('./pkls'):
+            os.makedirs('./pkls')
+        with open('./pkls/{0}.pkl'.format(args.output_folder), 'wb') as f:
+            pickle.dump(successes, f)
 
 
 

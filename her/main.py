@@ -43,40 +43,45 @@ def main(args):
                 json.dump(args, f, indent=2)
             train(sess, env, args, actor, critic, actor_noise)
         else:
-            ddpg = []
-            indexes = [e for e in range(500) if e % 10 == 9]
-            indexes = [0] + indexes
-            num_test_tasks = 10
+            # ddpg = []
+            # indexes = [e for e in range(400) if e % 10 == 9]
+            # indexes = [0] + indexes
+            indexes = [399]
+            num_test_tasks = 100
+            buckets = 1
             successes = []
             directory = args['to_pickle']
             for index in indexes:
-                times = []
+                # times = []
+                task_success = []
                 saver = tf.train.Saver()
-                saver.restore(sess, "../models/{0}/model-{1}.ckpt".format(directory, index))
-                tasks = env.unwrapped.sample_tasks(num_test_tasks)
-                success = 0
-                for task in tasks:
-                    s = env.reset_task(task)
-                    step = 0
-                    d = False
-                    while not d:
-                        # env.render()
-                        action = actor.predict_target(np.reshape(s, (1, actor.s_dim)))[0]
-                        step += 1
-                        obs, r, d, _ = env.step(action)
-                    if r == 1:
-                        success += 1
-                    times.append(step)
-                env.close()
-                successes.append(success / num_test_tasks)
-                ddpg.append(times)
-            out = [successes, ddpg]
-            #if not os.path.exists('./pkls'):
-            #    os.makedirs('./pkls')
-            #with open('./pkls/{0}.pkl'.format(args['save_dir']), 'wb') as f:
-            #    pickle.dump(out, f)
-            #with open('./pkls/{0}.pkl'.format(args['save_dir']), 'rb') as f:
-            #    test = pickle.load(f)
+                saver.restore(sess, "../final_models/multitask/fixed/{0}/model-{1}.ckpt".format(directory, index))
+                for _ in range(buckets):
+                    tasks = env.unwrapped.sample_tasks(num_test_tasks)
+                    # tasks = [{'goal': np.array([0., 0.])} for e in range(num_test_tasks)]
+                    success = 0
+                    for task in tasks:
+                        s = env.reset_task(task)
+                        step = 0
+                        d = False
+                        while not d:
+                            # env.render()
+                            action = actor.predict_target(np.reshape(s, (1, actor.s_dim)))[0]
+                            step += 1
+                            s, r, d, _ = env.step(action)
+                        if r == 1:
+                            success += 1
+                        # times.append(step)
+                    env.close()
+                    task_success.append(success / num_test_tasks)
+                successes.append(task_success)
+                # ddpg.append(times)
+            # out = [successes, ddpg]
+            env.close()
+            if not os.path.exists('./pkls'):
+                os.makedirs('./pkls')
+            with open('./pkls/{0}.pkl'.format(args['save_dir']), 'wb') as f:
+                pickle.dump(successes, f)
 
 
 if __name__ == '__main__':
@@ -86,7 +91,7 @@ if __name__ == '__main__':
                                                          'nb_target': 1,
                                                          'mode': 'random',
                                                          'agent_starting': 'fixed',
-                                                         'generation_zone': 'abc',
+                                                         'generation_zone': 'd',
                                                          'speed_limit_mode': 'vector_norm',
                                                          'GCP': True},
                                         continuous=True,
@@ -104,15 +109,15 @@ if __name__ == '__main__':
 
     # run parameters
     parser.add_argument('--env', help='choose the gym env- tested on gym_hypercube', default=id)
-    parser.add_argument('--random-seed', help='random seed for repeatability', default=1236)
-    parser.add_argument('--epochs', help='number of epochs', default=500)
+    parser.add_argument('--random-seed', help='random seed for repeatability', default=333)
+    parser.add_argument('--epochs', help='number of epochs', default=400)
     parser.add_argument('--max-episodes', help='max num of episodes per epoch to do while training', default=30)
-    parser.add_argument('--max-episode-len', help='max length of 1 episode', default=201)
-    parser.add_argument('--summary-dir', help='directory for storing tensorboard info', default='./summary/del')
-    parser.add_argument('--save-dir', help='directory for storing models', default='del')
-    parser.add_argument('--to-pickle', help='model to pickle', default='all_fictive_DDPG+HER')
+    parser.add_argument('--max-episode-len', help='max length of 1 episode', default=101)
+    parser.add_argument('--summary-dir', help='directory for storing tensorboard info', default='./summary/ddpg+gcp')
+    parser.add_argument('--save-dir', help='directory for storing models', default='ddpg+gcp')
+    parser.add_argument('--to-pickle', help='model to pickle', default='fixed/ddpg+gcp')
     parser.add_argument('--HER', help='use hindsight experience replay', default=False)
-    parser.add_argument('--fictive-rewards', help='use hindsight experience replay', default='all')
+    parser.add_argument('--fictive-rewards', help='use hindsight experience replay', default='few')
     parser.add_argument('--train', help='train the model from scratch', default=False)
 
     args = vars(parser.parse_args())
