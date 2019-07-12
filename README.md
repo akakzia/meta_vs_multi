@@ -14,13 +14,6 @@ Evaluation protocol
 
 #### Set up
 
-1. https://github.com/hroussille/RL-evaluation-environment <br>
-
-2. https://github.com/tristandeleu/pytorch-maml-rl<br>
-
-3. https://github.com/SamKirkiles/DDPG-MUJOCO<br>
-#### Set up
-
 Open a terminal and
 
 1. git clone this repository
@@ -44,6 +37,14 @@ Open a terminal and
   $ python her/main.py --HER=True
 ```
 To toggle on or off the use of Goal Conditioned Policies, go to code and change GCP value in the registration of the hypercube environment
+
+#### References
+
+1. https://github.com/hroussille/RL-evaluation-environment <br>
+
+2. https://github.com/tristandeleu/pytorch-maml-rl<br>
+
+3. https://github.com/SamKirkiles/DDPG-MUJOCO<br>
 
 
 #### Help
